@@ -1,0 +1,31 @@
+name: Sync bandi ANAC
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Installa dipendenze
+        working-directory: scripts
+        run: npm install
+
+      - name: Sincronizza bandi da ANAC
+        working-directory: scripts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+          NOTIFY_FUNCTION_URL: ${{ secrets.NOTIFY_FUNCTION_URL }}
+        run: node sync-bandi.mjs
+
