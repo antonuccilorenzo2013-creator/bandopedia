@@ -334,7 +334,7 @@
       const wantsUpgrade = new URLSearchParams(window.location.search).get('upgrade') === 'pro';
       let redirectTo = window.location.href.replace('accedi_final.html', 'dashboard_final.html');
       redirectTo = redirectTo.split('?')[0] + (wantsUpgrade ? '?upgrade=pro' : '');
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: { emailRedirectTo: redirectTo }
@@ -346,11 +346,19 @@
       if (error) {
         if (/already registered|already exists|already been registered/i.test(error.message)) {
           setFieldError('signup-email', 'err-signup-email', true);
-          document.getElementById('err-signup-email').textContent = 'Email già registrata. Prova ad accedere.';
+          document.getElementById('err-signup-email').innerHTML = 'Email già registrata. <a href="#" onclick="showTab(\'accedi\'); return false;" style="color:#DC2626; text-decoration:underline;">Clicca qui per accedere</a>.';
         } else {
           setFieldError('signup-password', 'err-signup-password', true);
           document.getElementById('err-signup-password').textContent = error.message;
         }
+        return;
+      }
+
+      // Supabase non restituisce un errore per un'email già registrata e confermata
+      // (per non rivelare quali email esistono): un array "identities" vuoto è il segnale.
+      if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setFieldError('signup-email', 'err-signup-email', true);
+        document.getElementById('err-signup-email').innerHTML = 'Email già registrata. <a href="#" onclick="showTab(\'accedi\'); return false;" style="color:#DC2626; text-decoration:underline;">Clicca qui per accedere</a>.';
         return;
       }
 
