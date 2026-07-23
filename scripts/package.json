@@ -1,0 +1,10 @@
+{
+  "name": "bandopedia-sync-bandi",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "stream-chain": "^2.2.5",
+    "stream-json": "^1.9.1"
+  }
+}
+
