@@ -167,8 +167,10 @@
       </div>
       <div class="nav-actions">
         <a href="#" class="help-circle">?</a>
-        <a href="accedi_final.html" class="btn-ghost">Accedi</a>
-        <a href="accedi_final.html" class="btn-solid">Iscriviti</a>
+        <a href="accedi_final.html" class="btn-ghost" id="nav-accedi">Accedi</a>
+        <a href="accedi_final.html" class="btn-solid" id="nav-iscriviti">Iscriviti</a>
+        <div class="avatar" id="nav-avatar" style="display:none; width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#0D9488,#7C3AED); color:#F7F9FC; align-items:center; justify-content:center; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; cursor:default;"></div>
+        <a href="#" class="btn-solid" id="nav-upgrade" style="display:none;" onclick="return handleNavUpgradeClick(event)">Upgrade a Pro</a>
       </div>
     </div>
   </nav>
@@ -254,7 +256,46 @@
       window.location.href = data.url;
     }
 
+    function handleNavUpgradeClick(e) {
+      e.preventDefault();
+      const btn = document.getElementById('nav-upgrade');
+      if (btn.dataset.pro === 'true') {
+        window.location.href = 'dashboard_final.html';
+      } else {
+        startProCheckout();
+      }
+      return false;
+    }
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        document.getElementById('nav-accedi').style.display = 'none';
+        document.getElementById('nav-iscriviti').style.display = 'none';
+
+        const avatar = document.getElementById('nav-avatar');
+        const email = session.user.email || '';
+        avatar.textContent = email.charAt(0).toUpperCase();
+        avatar.title = email;
+        avatar.style.display = 'flex';
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('plan')
+          .eq('id', session.user.id)
+          .single();
+
+        const upgradeBtn = document.getElementById('nav-upgrade');
+        if (profile?.plan === 'pro') {
+          upgradeBtn.textContent = 'Dashboard';
+          upgradeBtn.dataset.pro = 'true';
+        }
+        upgradeBtn.style.display = '';
+      }
+    })();
+
     window.startProCheckout = startProCheckout;
+    window.handleNavUpgradeClick = handleNavUpgradeClick;
   </script>
 
 </body>

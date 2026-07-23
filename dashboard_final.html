@@ -148,8 +148,8 @@
         Bandopedia
       </a>
       <div class="nav-actions">
-        <span class="trial-pill">Prova gratuita &middot; 5 giorni rimasti</span>
-        <a href="piani_final.html" class="btn-upgrade">Attiva ora</a>
+        <span class="trial-pill" id="trial-pill" style="display:none;"></span>
+        <a href="piani_final.html" class="btn-upgrade" id="btn-upgrade" style="display:none;">Attiva ora</a>
         <div class="avatar" id="user-avatar" title="">D</div>
         <a href="#" id="logout-link" style="font-size:13.5px; font-weight:500; color: var(--muted);">Esci</a>
       </div>
@@ -194,9 +194,9 @@
       </div>
 
       <div class="results">
-        <div class="upgrade-banner">
-          <p><b>Sei in prova gratuita Pro.</b> Hai accesso completo per altri 5 giorni. Nessun addebito fino ad allora.</p>
-          <a href="piani_final.html" class="btn-upgrade">Attiva ora</a>
+        <div class="upgrade-banner" id="upgrade-banner" style="display:none;">
+          <p id="upgrade-banner-text"></p>
+          <a href="piani_final.html" class="btn-upgrade" id="upgrade-banner-btn">Attiva ora</a>
         </div>
 
         <div class="results-head">
@@ -295,6 +295,13 @@
       'sb_publishable_rIHulTc0V-0_v1jAFOiDBA_uS6Cez8a'
     );
 
+    async function goToCheckout() {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: { origin: window.location.href.replace(/[^/]+$/, '') }
+      });
+      if (!error && data?.url) window.location.href = data.url;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       window.location.href = 'accedi_final.html';
@@ -304,10 +311,43 @@
       document.getElementById('user-avatar').title = email;
 
       if (new URLSearchParams(window.location.search).get('upgrade') === 'pro') {
-        const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-          body: { origin: window.location.href.replace(/[^/]+$/, '') }
-        });
-        if (!error && data?.url) window.location.href = data.url;
+        await goToCheckout();
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('plan, plan_status, trial_ends_at')
+        .eq('id', session.user.id)
+        .single();
+
+      const trialPill = document.getElementById('trial-pill');
+      const navBtnUpgrade = document.getElementById('btn-upgrade');
+      const banner = document.getElementById('upgrade-banner');
+      const bannerText = document.getElementById('upgrade-banner-text');
+      const bannerBtn = document.getElementById('upgrade-banner-btn');
+
+      const isPro = profile?.plan === 'pro';
+      const isTrialing = isPro && profile?.plan_status === 'trialing';
+
+      if (isTrialing && profile.trial_ends_at) {
+        const daysLeft = Math.max(0, Math.ceil((new Date(profile.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)));
+        trialPill.textContent = `Prova gratuita · ${daysLeft} giorni rimasti`;
+        trialPill.style.display = '';
+        banner.style.display = '';
+        bannerText.innerHTML = `<b>Sei in prova gratuita Pro.</b> Hai accesso completo per altri ${daysLeft} giorni. Nessun addebito fino ad allora.`;
+        bannerBtn.style.display = 'none';
+      } else if (isPro) {
+        trialPill.textContent = 'Piano Pro attivo';
+        trialPill.style.display = '';
+        banner.style.display = 'none';
+      } else {
+        navBtnUpgrade.style.display = '';
+        banner.style.display = '';
+        bannerText.innerHTML = '<b>Sei sul piano Anteprima.</b> Passa a Pro per sbloccare tutti i bandi, tutte le regioni e l\'esportazione CSV.';
+        bannerBtn.textContent = 'Passa a Pro';
+        bannerBtn.removeAttribute('href');
+        bannerBtn.style.cursor = 'pointer';
+        bannerBtn.addEventListener('click', goToCheckout);
       }
     }
 
