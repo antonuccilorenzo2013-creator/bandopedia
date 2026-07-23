@@ -307,6 +307,17 @@
       if (!error && data?.url) window.location.href = data.url;
     }
 
+    let currentUserId = null;
+    let userPrefs = null;
+
+    async function savePrefs(settore, regione, fascia) {
+      if (!currentUserId) return;
+      await supabase
+        .from('profiles')
+        .update({ pref_settore: settore, pref_regione: regione, pref_fascia: fascia })
+        .eq('id', currentUserId);
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       window.location.href = 'accedi_final.html';
@@ -319,11 +330,19 @@
         await goToCheckout();
       }
 
+      currentUserId = session.user.id;
+
       const { data: profile } = await supabase
         .from('profiles')
-        .select('plan, plan_status, trial_ends_at')
+        .select('plan, plan_status, trial_ends_at, pref_settore, pref_regione, pref_fascia')
         .eq('id', session.user.id)
         .single();
+
+      userPrefs = {
+        settore: profile?.pref_settore || 'tutti',
+        regione: profile?.pref_regione || 'tutte',
+        fascia: profile?.pref_fascia || 'tutti',
+      };
 
       const trialPill = document.getElementById('trial-pill');
       const navBtnUpgrade = document.getElementById('btn-upgrade');
@@ -478,6 +497,7 @@
           regioneInput.value = opt.dataset.nome;
           regioneSuggestions.style.display = 'none';
           applyFilters();
+          savePrefs(getRadioValue('settore'), getRegionePrefValue(), getRadioValue('fascia'));
         });
       });
     }
@@ -494,6 +514,10 @@
     function getRadioValue(name) {
       const el = document.querySelector(`input[name="${name}"]:checked`);
       return el ? el.value : 'tutti';
+    }
+
+    function getRegionePrefValue() {
+      return getRadioValue('regione') === 'specifica' && regioneScelta ? regioneScelta : 'tutte';
     }
 
     function updateActiveLabels() {
@@ -525,7 +549,10 @@
     }
 
     document.querySelectorAll('input[name="settore"], input[name="fascia"]').forEach(radio => {
-      radio.addEventListener('change', applyFilters);
+      radio.addEventListener('change', () => {
+        applyFilters();
+        savePrefs(getRadioValue('settore'), getRegionePrefValue(), getRadioValue('fascia'));
+      });
     });
 
     const regioneSpecificaRadio = document.getElementById('regione-specifica-radio');
@@ -533,8 +560,30 @@
       radio.addEventListener('change', () => {
         regioneSearchWrap.style.display = regioneSpecificaRadio.checked ? 'block' : 'none';
         applyFilters();
+        savePrefs(getRadioValue('settore'), getRegionePrefValue(), getRadioValue('fascia'));
       });
     });
+
+    // Applica le preferenze salvate dall'utente, se presenti.
+    if (userPrefs) {
+      if (userPrefs.settore !== 'tutti') {
+        const r = document.querySelector(`input[name="settore"][value="${userPrefs.settore}"]`);
+        if (r && !r.disabled) r.checked = true;
+      }
+      if (userPrefs.fascia !== 'tutti') {
+        const r = document.querySelector(`input[name="fascia"][value="${userPrefs.fascia}"]`);
+        if (r && !r.disabled) r.checked = true;
+      }
+      if (userPrefs.regione !== 'tutte') {
+        const regione = REGIONI.find(r => r.slug === userPrefs.regione);
+        if (regione && !regioneSpecificaRadio.disabled) {
+          regioneSpecificaRadio.checked = true;
+          regioneScelta = regione.slug;
+          regioneInput.value = regione.nome;
+          regioneSearchWrap.style.display = 'block';
+        }
+      }
+    }
 
     applyFilters();
   </script>
