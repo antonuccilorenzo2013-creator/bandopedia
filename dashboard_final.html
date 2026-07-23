@@ -302,6 +302,13 @@
       const email = session.user.email || '';
       document.getElementById('user-avatar').textContent = email.charAt(0).toUpperCase();
       document.getElementById('user-avatar').title = email;
+
+      if (new URLSearchParams(window.location.search).get('upgrade') === 'pro') {
+        const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+          body: { origin: window.location.href.replace(/[^/]+$/, '') }
+        });
+        if (!error && data?.url) window.location.href = data.url;
+      }
     }
 
     document.getElementById('logout-link').addEventListener('click', async (e) => {

@@ -304,7 +304,9 @@
       submitBtn.disabled = true;
       submitBtn.textContent = 'Creazione account...';
 
-      const redirectTo = window.location.href.replace('accedi_final.html', 'dashboard_final.html');
+      const wantsUpgrade = new URLSearchParams(window.location.search).get('upgrade') === 'pro';
+      let redirectTo = window.location.href.replace('accedi_final.html', 'dashboard_final.html');
+      redirectTo = redirectTo.split('?')[0] + (wantsUpgrade ? '?upgrade=pro' : '');
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -367,12 +369,28 @@
         return;
       }
 
-      window.location.href = 'dashboard_final.html';
+      await redirectAfterAuth();
     }
 
-    // Se l'utente ha già una sessione attiva, salta direttamente alla dashboard.
+    async function redirectAfterAuth() {
+      const wantsUpgrade = new URLSearchParams(window.location.search).get('upgrade') === 'pro';
+      if (!wantsUpgrade) {
+        window.location.href = 'dashboard_final.html';
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: { origin: window.location.href.replace(/[^/]+$/, '') }
+      });
+      if (error || !data?.url) {
+        window.location.href = 'dashboard_final.html';
+        return;
+      }
+      window.location.href = data.url;
+    }
+
+    // Se l'utente ha già una sessione attiva, salta direttamente alla dashboard (o al checkout Pro).
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) window.location.href = 'dashboard_final.html';
+      if (data.session) redirectAfterAuth();
     });
 
     window.showTab = showTab;

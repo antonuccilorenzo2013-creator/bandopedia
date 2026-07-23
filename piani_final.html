@@ -209,7 +209,7 @@
         <li><span class="check">✓</span> Notifica email automatica</li>
         <li><span class="check">✓</span> Esportazione dati (CSV)</li>
       </ul>
-      <button class="btn btn-solid" onclick="window.location.href='accedi_final.html'">Inizia la prova gratuita di 7 giorni</button>
+      <button class="btn btn-solid" id="btn-pro" onclick="startProCheckout()">Inizia la prova gratuita di 7 giorni</button>
       <div class="plan-fineprint">poi 19€/mese &middot; disdici quando vuoi</div>
     </div>
 
@@ -220,6 +220,42 @@
     Se non disdici, al giorno 8 parte il primo addebito di 19€. Puoi disdire in qualsiasi momento
     dalla tua area personale, anche durante i 7 giorni gratuiti — in quel caso non paghi nulla.
   </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const supabase = createClient(
+      'https://vfwsgoovgftmwjavzwjq.supabase.co',
+      'sb_publishable_rIHulTc0V-0_v1jAFOiDBA_uS6Cez8a'
+    );
+
+    async function startProCheckout() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = 'accedi_final.html?upgrade=pro';
+        return;
+      }
+
+      const btn = document.getElementById('btn-pro');
+      btn.disabled = true;
+      btn.textContent = 'Un attimo...';
+
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: { origin: window.location.href.replace(/[^/]+$/, '') }
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Inizia la prova gratuita di 7 giorni';
+
+      if (error || !data?.url) {
+        alert('Qualcosa non ha funzionato. Riprova tra poco.');
+        return;
+      }
+      window.location.href = data.url;
+    }
+
+    window.startProCheckout = startProCheckout;
+  </script>
 
 </body>
 </html>
