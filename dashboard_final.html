@@ -357,14 +357,9 @@
       const lock = (input) => {
         input.disabled = true;
         const label = input.closest('label');
-        label.style.opacity = '0.6';
-        label.style.cursor = 'not-allowed';
+        label.classList.remove('active');
+        label.classList.add('locked');
         label.title = 'Disponibile con il piano Pro';
-
-        const badge = document.createElement('span');
-        badge.textContent = 'PRO';
-        badge.style.cssText = 'margin-left:6px; font-size:9px; font-weight:700; padding:1px 6px; border-radius:8px; background:linear-gradient(120deg,#0D9488,#7C3AED); color:#F7F9FC; letter-spacing:0.03em; vertical-align:middle;';
-        label.appendChild(badge);
 
         label.addEventListener('click', (e) => {
           e.preventDefault();
