@@ -348,7 +348,31 @@
         bannerBtn.removeAttribute('href');
         bannerBtn.style.cursor = 'pointer';
         bannerBtn.addEventListener('click', goToCheckout);
+
+        lockFiltersForFreePlan();
       }
+    }
+
+    function lockFiltersForFreePlan() {
+      const lock = (input) => {
+        input.disabled = true;
+        const label = input.closest('label');
+        label.style.opacity = '0.45';
+        label.style.cursor = 'not-allowed';
+        label.title = 'Disponibile con il piano Pro';
+        label.addEventListener('click', (e) => {
+          e.preventDefault();
+          goToCheckout();
+        });
+      };
+
+      document.querySelectorAll('input[name="settore"]').forEach((r) => {
+        if (r.value !== 'tutti') lock(r);
+      });
+      document.querySelectorAll('input[name="fascia"]').forEach((r) => {
+        if (r.value !== 'tutti') lock(r);
+      });
+      lock(document.getElementById('regione-specifica-radio'));
     }
 
     document.getElementById('logout-link').addEventListener('click', async (e) => {
