@@ -209,8 +209,8 @@
 
         <button class="btn-submit" onclick="showTab('accedi')">Torna al login</button>
 
-        <div class="trial-note">
-          Non hai ricevuto niente? Controlla anche lo spam, oppure <a href="#" onclick="showTab('iscriviti'); return false;" style="color: var(--cyan);">riprova con un'altra email</a>.
+        <div class="trial-note" id="resend-note">
+          Non hai ricevuto niente? Controlla anche lo spam, oppure <a href="#" id="resend-link" onclick="resendConfirmation(); return false;" style="color: var(--cyan);">invia di nuovo il link</a>.
         </div>
       </div>
 
@@ -282,6 +282,33 @@
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
     }
 
+    let pendingSignupEmail = null;
+
+    async function resendConfirmation() {
+      if (!pendingSignupEmail) return;
+      const link = document.getElementById('resend-link');
+      const originalText = link.textContent;
+      link.textContent = 'Invio in corso...';
+
+      const wantsUpgrade = new URLSearchParams(window.location.search).get('upgrade') === 'pro';
+      let redirectTo = window.location.href.replace('accedi_final.html', 'dashboard_final.html');
+      redirectTo = redirectTo.split('?')[0] + (wantsUpgrade ? '?upgrade=pro' : '');
+
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingSignupEmail,
+        options: { emailRedirectTo: redirectTo }
+      });
+
+      if (error) {
+        link.textContent = 'Errore, riprova tra poco';
+        setTimeout(() => { link.textContent = originalText; }, 4000);
+      } else {
+        link.textContent = 'Email inviata di nuovo ✓';
+        setTimeout(() => { link.textContent = originalText; }, 6000);
+      }
+    }
+
     async function submitSignup() {
       const email = document.getElementById('signup-email').value;
       const password = document.getElementById('signup-password').value;
@@ -327,6 +354,7 @@
         return;
       }
 
+      pendingSignupEmail = email.trim();
       document.getElementById('form-iscriviti').style.display = 'none';
       document.getElementById('form-verifica').style.display = 'block';
       document.getElementById('verifica-sub').textContent = `Ti abbiamo inviato un link di conferma a ${email}`;
@@ -396,6 +424,7 @@
     window.showTab = showTab;
     window.submitSignup = submitSignup;
     window.submitLogin = submitLogin;
+    window.resendConfirmation = resendConfirmation;
   </script>
 
 </body>
