@@ -6,11 +6,16 @@
 // Variabili d'ambiente richieste:
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SYNC_SECRET, NOTIFY_FUNCTION_URL
 
-import { chain } from "stream-chain";
-import { parser } from "stream-json";
-import { pick } from "stream-json/filters/Pick.js";
-import { streamArray } from "stream-json/streamers/StreamArray.js";
+import streamChainPkg from "stream-chain";
+import streamJsonPkg from "stream-json";
+import pickPkg from "stream-json/filters/Pick.js";
+import streamArrayPkg from "stream-json/streamers/StreamArray.js";
 import { Readable } from "node:stream";
+
+const { chain } = streamChainPkg;
+const { parser } = streamJsonPkg;
+const { pick } = pickPkg;
+const { streamArray } = streamArrayPkg;
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const SERVICE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
