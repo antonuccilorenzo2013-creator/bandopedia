@@ -100,7 +100,7 @@ function monthsToCheck(n) {
 }
 
 async function fetchRange(year, month, start, end, attempt) {
-  attempt = attempt || 1;
+attempt = attempt || 1;
   const url = ANAC_PROXY_URL + "?year=" + year + "&month=" + month;
   try {
     const res = await fetch(url, {
@@ -110,13 +110,14 @@ async function fetchRange(year, month, start, end, attempt) {
     if (res.status !== 206 && res.status !== 200) throw new Error("HTTP " + res.status);
     return res;
   } catch (err) {
-    if (attempt >= 3) {
+    if (attempt >= 6) {
       throw new Error("ANAC " + year + "/" + month + " range " + start + "-" + end + " fallito dopo " + attempt + " tentativi: " + err.message);
     }
     console.warn("[" + year + "-" + month + "] range " + start + "-" + end + " tentativo " + attempt + " fallito (" + err.message + "), riprovo...");
-    await new Promise((r) => setTimeout(r, 3000 * attempt));
+    await new Promise((r) => setTimeout(r, 5000 * attempt));
     return fetchRange(year, month, start, end, attempt + 1);
   }
+}
 }
 
 function buyerLocality(release) {
