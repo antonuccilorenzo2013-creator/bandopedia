@@ -99,8 +99,8 @@ function monthsToCheck(n) {
   return out;
 }
 
-async function fetchRange(year, month, start, end, attempt) {
-attempt = attempt || 1;
+async function fetchRangeBuffer(year, month, start, end, attempt) {
+  attempt = attempt || 1;
   const url = ANAC_PROXY_URL + "?year=" + year + "&month=" + month;
   try {
     const res = await fetch(url, {
@@ -108,17 +108,18 @@ attempt = attempt || 1;
     });
     if (res.status === 404) return null;
     if (res.status !== 206 && res.status !== 200) throw new Error("HTTP " + res.status);
-    return res;
+    const contentRange = res.headers.get("content-range");
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { buf: buf, contentRange: contentRange };
   } catch (err) {
     if (attempt >= 6) {
       throw new Error("ANAC " + year + "/" + month + " range " + start + "-" + end + " fallito dopo " + attempt + " tentativi: " + err.message);
     }
     console.warn("[" + year + "-" + month + "] range " + start + "-" + end + " tentativo " + attempt + " fallito (" + err.message + "), riprovo...");
     await new Promise((r) => setTimeout(r, 5000 * attempt));
-    return fetchRange(year, month, start, end, attempt + 1);
+    return fetchRangeBuffer(year, month, start, end, attempt + 1);
   }
 }
- 
 
 function buyerLocality(release) {
   const buyerId = release.buyer && release.buyer.id;
@@ -173,25 +174,24 @@ async function upsertBatch(rows) {
 }
 
 async function processMonth(year, month, comuneRegioneMap, stats) {
-  const firstChunk = await fetchRange(year, month, 0, CHUNK_SIZE - 1);
-  if (!firstChunk) {
+  const first = await fetchRangeBuffer(year, month, 0, CHUNK_SIZE - 1);
+  if (!first) {
     console.log("[" + year + "-" + month + "] non ancora pubblicato su ANAC, salto.");
     return;
   }
 
-  const contentRange = firstChunk.headers.get("content-range");
-  const totalSize = contentRange ? parseInt(contentRange.split("/")[1], 10) : null;
+  const totalSize = first.contentRange ? parseInt(first.contentRange.split("/")[1], 10) : null;
 
   console.log("[" + year + "-" + month + "] download a blocchi (" + (totalSize || "dimensione sconosciuta") + " byte) e parsing...");
 
   async function* fullBody() {
-    for await (const chunk of firstChunk.body) yield chunk;
+    yield first.buf;
     if (!totalSize) return;
     let start = CHUNK_SIZE;
     while (start < totalSize) {
       const end = Math.min(start + CHUNK_SIZE - 1, totalSize - 1);
-      const res = await fetchRange(year, month, start, end);
-      for await (const chunk of res.body) yield chunk;
+      const chunk = await fetchRangeBuffer(year, month, start, end);
+      yield chunk.buf;
       start = end + 1;
     }
   }
@@ -260,5 +260,4 @@ async function main() {
 main().catch((err) => {
   console.error("Errore fatale durante la sincronizzazione:", err);
   process.exit(1);
-});;
-
+});
