@@ -22,9 +22,11 @@ const SERVICE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 const SYNC_SECRET = requireEnv("SYNC_SECRET");
 const NOTIFY_FUNCTION_URL = requireEnv("NOTIFY_FUNCTION_URL");
 
-const MONTHS_TO_CHECK = 3; // mese corrente + 2 precedenti, copre eventuali ritardi ANAC
+const MONTHS_TO_CHECK = 3;
 const BATCH_SIZE = 500;
 const COMUNI_URL = "https://raw.githubusercontent.com/matteocontrini/comuni-json/master/comuni.json";
+const ANAC_PROXY_URL = "https://bandopedia.netlify.app/anac-proxy-edge";
+const CHUNK_SIZE = 50 * 1024 * 1024;
 
 const ANAC_HEADERS = {
   "User-Agent":
@@ -97,19 +99,23 @@ function monthsToCheck(n) {
   return out;
 }
 
-async function fetchMonth(year, month, attempt) {
+async function fetchRange(year, month, start, end, attempt) {
   attempt = attempt || 1;
-  const url = "https://dati.anticorruzione.it/opendata/download/dataset/ocds/filesystem/bulk/" + year + "/" + month + ".json";
+  const url = ANAC_PROXY_URL + "?year=" + year + "&month=" + month;
   try {
-    const res = await fetch(url, { headers: ANAC_HEADERS });
+    const res = await fetch(url, {
+      headers: Object.assign({}, ANAC_HEADERS, { Range: "bytes=" + start + "-" + end }),
+    });
     if (res.status === 404) return null;
-    if (!res.ok) throw new Error("HTTP " + res.status);
+    if (res.status !== 206 && res.status !== 200) throw new Error("HTTP " + res.status);
     return res;
   } catch (err) {
-    if (attempt >= 3) throw new Error("ANAC " + year + "/" + month + " fallito dopo " + attempt + " tentativi: " + err.message);
-    console.warn("[" + year + "-" + month + "] tentativo " + attempt + " fallito (" + err.message + "), riprovo...");
+    if (attempt >= 3) {
+      throw new Error("ANAC " + year + "/" + month + " range " + start + "-" + end + " fallito dopo " + attempt + " tentativi: " + err.message);
+    }
+    console.warn("[" + year + "-" + month + "] range " + start + "-" + end + " tentativo " + attempt + " fallito (" + err.message + "), riprovo...");
     await new Promise((r) => setTimeout(r, 3000 * attempt));
-    return fetchMonth(year, month, attempt + 1);
+    return fetchRange(year, month, start, end, attempt + 1);
   }
 }
 
@@ -166,15 +172,31 @@ async function upsertBatch(rows) {
 }
 
 async function processMonth(year, month, comuneRegioneMap, stats) {
-  const res = await fetchMonth(year, month);
-  if (!res) {
+  const firstChunk = await fetchRange(year, month, 0, CHUNK_SIZE - 1);
+  if (!firstChunk) {
     console.log("[" + year + "-" + month + "] non ancora pubblicato su ANAC, salto.");
     return;
   }
 
-  console.log("[" + year + "-" + month + "] download e parsing in corso...");
+  const contentRange = firstChunk.headers.get("content-range");
+  const totalSize = contentRange ? parseInt(contentRange.split("/")[1], 10) : null;
+
+  console.log("[" + year + "-" + month + "] download a blocchi (" + (totalSize || "dimensione sconosciuta") + " byte) e parsing...");
+
+  async function* fullBody() {
+    for await (const chunk of firstChunk.body) yield chunk;
+    if (!totalSize) return;
+    let start = CHUNK_SIZE;
+    while (start < totalSize) {
+      const end = Math.min(start + CHUNK_SIZE - 1, totalSize - 1);
+      const res = await fetchRange(year, month, start, end);
+      for await (const chunk of res.body) yield chunk;
+      start = end + 1;
+    }
+  }
+
   const pipeline = chain([
-    Readable.fromWeb(res.body),
+    Readable.from(fullBody()),
     parser(),
     pick({ filter: "releases" }),
     streamArray(),
@@ -237,5 +259,5 @@ async function main() {
 main().catch((err) => {
   console.error("Errore fatale durante la sincronizzazione:", err);
   process.exit(1);
-});
+});;
 
