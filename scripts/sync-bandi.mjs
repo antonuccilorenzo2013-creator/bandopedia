@@ -118,7 +118,7 @@ attempt = attempt || 1;
     return fetchRange(year, month, start, end, attempt + 1);
   }
 }
-}
+ 
 
 function buyerLocality(release) {
   const buyerId = release.buyer && release.buyer.id;
