@@ -22,7 +22,7 @@ const SERVICE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 const SYNC_SECRET = requireEnv("SYNC_SECRET");
 const NOTIFY_FUNCTION_URL = requireEnv("NOTIFY_FUNCTION_URL");
 
-const MONTHS_TO_CHECK = 3;
+const MONTHS_TO_CHECK = 6;
 const BATCH_SIZE = 500;
 const COMUNI_URL = "https://raw.githubusercontent.com/matteocontrini/comuni-json/master/comuni.json";
 const ANAC_PROXY_URL = "https://bandopedia.netlify.app/anac-proxy-edge";
